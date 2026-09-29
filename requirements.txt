@@ -1,0 +1,7 @@
+pyTelegramBotAPI
+yt-dlp
+psycopg[binary]
+flask
+pillow
+
+ault]
