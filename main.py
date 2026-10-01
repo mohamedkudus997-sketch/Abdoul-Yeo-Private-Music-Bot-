@@ -18,23 +18,23 @@ convertir l'audio en M4A et fusionner les formats vidéo si nécessaire.
 """
 
 import html
+import json
 import logging
 import os
 import re
+import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from tempfile import mkdtemp
-import shutil
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 import psycopg
-from psycopg_pool import ConnectionPool
-from flask import Flask
-from PIL import Image
 import telebot
+from flask import Flask
+from psycopg_pool import ConnectionPool
 from telebot import types
 from yt_dlp import YoutubeDL
 from yt_dlp.utils import DownloadError
@@ -163,7 +163,7 @@ def init_db(retries=5):
 
     for attempt in range(1, retries + 1):
         try:
-            pool.open(waiting=True)
+            pool.open(wait=True)
 
             with db() as conn:
                 conn.execute(
@@ -379,7 +379,6 @@ def itunes(endpoint, params):
     )
 
     with urlopen(req, timeout=12) as response:
-        import json
         return json.loads(
             response.read().decode("utf-8")
         )
