@@ -1,5 +1,5 @@
 pyTelegramBotAPI
 yt-dlp
-psycopg[binary]
+psycopg[binary,pool]
 flask
 pillow
