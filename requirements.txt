@@ -1,5 +1,0 @@
-pyTelegramBotAPI
-yt-dlp
-psycopg[binary]
-psycopg_pool
-flask
