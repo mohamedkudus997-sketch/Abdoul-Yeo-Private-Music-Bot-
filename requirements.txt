@@ -1,0 +1,4 @@
+pyTelegramBotAPI
+Flask
+yt-dlp[default]
+ytmusicapi
