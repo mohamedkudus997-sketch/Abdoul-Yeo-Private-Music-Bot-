@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Téo — Private Music</title>
+<meta name="theme-color" content="#06070d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{
+  --h1:215; --h2:262; --h3:190;              /* teintes dynamiques (changent avec le titre joué) */
+  --ink:#f4f7ff; --mute:rgba(236,242,255,.62); --line:rgba(255,255,255,.16);
+  --glass:rgba(255,255,255,.075); --glass2:rgba(255,255,255,.13);
+  --accent:hsl(var(--h1) 95% 72%); --accent2:hsl(var(--h2) 90% 70%);
+  --font:"Sora",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --dock:76px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#06070d;color:var(--ink);font-family:var(--font);overflow:hidden}
+body{display:flex;flex-direction:column}
+/* fond liquide : trois nappes de couleur qui dérivent */
+.bg{position:fixed;inset:0;z-index:0;overflow:hidden;background:radial-gradient(120% 90% at 50% 0%,#0d1122 0%,#06070d 70%)}
+.blob{position:absolute;width:70vmax;height:70vmax;border-radius:50%;filter:blur(70px);opacity:.55;mix-blend-mode:screen;
+  transition:background 1.6s ease;will-change:transform}
+.b1{background:radial-gradient(circle at 30% 30%,hsl(var(--h1) 95% 60%),transparent 65%);left:-25vmax;top:-20vmax;animation:d1 22s ease-in-out infinite alternate}
+.b2{background:radial-gradient(circle at 60% 40%,hsl(var(--h2) 90% 58%),transparent 65%);right:-30vmax;top:10vh;animation:d2 28s ease-in-out infinite alternate}
+.b3{background:radial-gradient(circle at 50% 50%,hsl(var(--h3) 90% 52%),transparent 65%);left:-10vmax;bottom:-30vmax;animation:d3 25s ease-in-out infinite alternate}
+@keyframes d1{to{transform:translate(18vmax,12vmax) scale(1.15)}}
+@keyframes d2{to{transform:translate(-16vmax,18vmax) scale(.9)}}
+@keyframes d3{to{transform:translate(22vmax,-14vmax) scale(1.2)}}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.07;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence baseFrequency='.9' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+/* verre */
+.glass{background:linear-gradient(135deg,rgba(255,255,255,.16),rgba(255,255,255,.05));
+  border:1px solid var(--line);border-top-color:rgba(255,255,255,.34);border-left-color:rgba(255,255,255,.26);
+  backdrop-filter:blur(26px) saturate(170%);-webkit-backdrop-filter:blur(26px) saturate(170%);
+  box-shadow:0 10px 40px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.28),inset 0 -1px 0 rgba(255,255,255,.04);
+  border-radius:22px}
+main{position:relative;z-index:2;flex:1;overflow-y:auto;padding:max(14px,env(safe-area-inset-top)) 16px calc(var(--dock) + 96px);
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+main::-webkit-scrollbar{display:none}
+.page{display:none;animation:in .45s cubic-bezier(.2,.8,.2,1)}
+.page.on{display:block}
+@keyframes in{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+/* en-tête */
+.hero{padding:18px;display:flex;gap:14px;align-items:center;margin-bottom:16px}
+.logo{width:54px;height:54px;border-radius:18px;display:grid;place-items:center;font-weight:800;font-size:22px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07101f;box-shadow:0 8px 26px hsl(var(--h1) 90% 55%/.5)}
+.hero h1{font-size:19px;margin:0 0 3px;font-weight:800;letter-spacing:-.2px}
+.hero p{margin:0;color:var(--mute);font-size:12.5px}
+.chip{margin-left:auto;text-align:center;padding:8px 12px;border-radius:16px;background:var(--glass2);border:1px solid var(--line);min-width:74px}
+.chip b{display:block;font-size:19px;line-height:1}
+.chip span{font-size:10px;color:var(--mute);letter-spacing:.6px;text-transform:uppercase}
+h2{font-size:13px;letter-spacing:1.4px;text-transform:uppercase;color:var(--mute);margin:20px 4px 10px;font-weight:600}
+/* lignes de titres */
+.row{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-bottom:9px;border-radius:18px;cursor:pointer;
+  transition:transform .15s,background .25s}
+.row:active{transform:scale(.975)}
+.row.now{background:linear-gradient(135deg,hsl(var(--h1) 90% 60%/.35),hsl(var(--h2) 90% 60%/.18));border-color:rgba(255,255,255,.4)}
+.row.off{opacity:.45}
+.cov{width:52px;height:52px;border-radius:14px;flex:none;background:var(--glass2) center/cover no-repeat;
+  display:grid;place-items:center;font-size:20px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.meta{min-width:0;flex:1}
+.meta b{display:block;font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta>span{display:block;font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.dur{font-size:11.5px;color:var(--mute);font-variant-numeric:tabular-nums}
+.eq{display:none;gap:2px;align-items:flex-end;height:16px}
+.row.now .eq{display:flex}
+.eq i{width:3px;background:var(--accent);border-radius:2px;animation:eq 1s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.2s}.eq i:nth-child(3){animation-delay:.4s}
+.paused .eq i{animation-play-state:paused}
+@keyframes eq{0%,100%{height:4px}50%{height:16px}}
+/* albums */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.alb{padding:10px;cursor:pointer;transition:transform .15s}
+.alb:active{transform:scale(.97)}
+.alb .art{aspect-ratio:1;border-radius:16px;background:var(--glass2) center/cover no-repeat;display:grid;place-items:center;font-size:34px;
+  box-shadow:0 10px 26px rgba(0,0,0,.45)}
+.alb b{display:block;margin-top:9px;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alb span{font-size:11.5px;color:var(--mute)}
+.back{display:inline-flex;gap:6px;align-items:center;padding:9px 14px;margin-bottom:12px;font-size:13px;cursor:pointer;border-radius:14px}
+.playall{display:flex;gap:8px;align-items:center;justify-content:center;padding:13px;margin:6px 0 14px;font-weight:600;cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07101f;border-radius:18px;box-shadow:0 10px 30px hsl(var(--h1) 90% 55%/.45)}
+/* admin */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.tile{padding:14px 10px;text-align:center}
+.tile b{display:block;font-size:24px;font-weight:800}
+.tile span{font-size:10.5px;color:var(--mute);text-transform:uppercase;letter-spacing:.7px}
+.search{width:100%;padding:13px 16px;margin-bottom:12px;color:var(--ink);font:inherit;font-size:14px;outline:none;border-radius:16px}
+.search::placeholder{color:var(--mute)}
+.u{padding:12px;margin-bottom:9px;display:flex;gap:12px;align-items:center}
+.av{width:44px;height:44px;border-radius:15px;display:grid;place-items:center;font-weight:800;color:#07101f;flex:none}
+.u .meta .id{font-variant-numeric:tabular-nums;cursor:copy}
+.badge{display:inline-block}
+.badge{font-size:10px;padding:3px 8px;border-radius:99px;font-weight:600;letter-spacing:.4px;background:var(--glass2);border:1px solid var(--line)}
+.badge.owner{background:linear-gradient(135deg,#ffd76a,#ff9d4d);color:#241300;border:0}
+.left{margin-left:auto;text-align:right;min-width:70px}
+.left b{font-size:17px;display:block}
+.left small{font-size:10px;color:var(--mute)}
+.bar{height:4px;border-radius:4px;background:rgba(255,255,255,.14);margin-top:5px;overflow:hidden}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px}
+.empty{padding:34px 20px;text-align:center;color:var(--mute);font-size:14px;line-height:1.6}
+.empty big{display:block;font-size:42px;margin-bottom:8px}
+/* barre de lecture + dock */
+#mini{position:fixed;left:12px;right:12px;bottom:calc(var(--dock) + 10px + env(safe-area-inset-bottom));z-index:6;padding:9px 12px;
+  display:none;align-items:center;gap:11px;cursor:pointer}
+#mini.on{display:flex}
+#mini .cov{width:44px;height:44px;border-radius:12px}
+.pbtn{width:42px;height:42px;border-radius:50%;border:0;display:grid;place-items:center;font-size:17px;cursor:pointer;color:#07101f;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));flex:none}
+.ghost{background:var(--glass2);color:var(--ink);border:1px solid var(--line)}
+.prog{position:absolute;left:14px;right:14px;bottom:0;height:2px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+#dock{position:fixed;left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:7;height:var(--dock);
+  display:flex;justify-content:space-around;align-items:center;padding:0 8px;border-radius:28px}
+#dock button{flex:1;height:58px;background:none;border:0;color:var(--mute);font:inherit;font-size:11px;font-weight:600;
+  display:flex;flex-direction:column;gap:3px;align-items:center;justify-content:center;border-radius:20px;cursor:pointer;transition:all .3s}
+#dock button span{font-size:21px;filter:grayscale(.4)}
+#dock button.on{color:var(--ink);background:var(--glass2);box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+#dock button.on span{filter:none}
+/* lecteur plein écran */
+#full{position:fixed;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;padding:max(18px,env(safe-area-inset-top)) 26px 34px;
+  background:rgba(6,7,13,.86);backdrop-filter:blur(40px) saturate(160%);-webkit-backdrop-filter:blur(40px) saturate(160%)}
+#full.on{display:flex;animation:in .4s cubic-bezier(.2,.8,.2,1)}
+#full .close{align-self:flex-start;padding:10px 16px;border-radius:16px;font-size:13px;cursor:pointer}
+#bigcov{width:min(78vw,40vh);aspect-ratio:1;border-radius:30px;margin:auto 0 22px;background:var(--glass2) center/cover no-repeat;
+  display:grid;place-items:center;font-size:70px;box-shadow:0 30px 80px hsl(var(--h1) 90% 50%/.55),0 0 0 1px rgba(255,255,255,.18);
+  transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+.playing #bigcov{transform:scale(1)}.paused #bigcov{transform:scale(.9)}
+#ft{font-size:21px;font-weight:800;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#fa{color:var(--mute);margin:5px 0 18px;font-size:14px}
+#seek{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:6px;background:rgba(255,255,255,.18);outline:none}
+#seek::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 0 14px hsl(var(--h1) 95% 70%)}
+.times{display:flex;justify-content:space-between;width:100%;font-size:11.5px;color:var(--mute);margin:7px 0 18px;font-variant-numeric:tabular-nums}
+.ctrl{display:flex;gap:22px;align-items:center;margin-bottom:6px}
+.ctrl .pbtn{width:66px;height:66px;font-size:26px}
+.ctrl .ghost{width:50px;height:50px;font-size:19px}
+.lock{position:fixed;inset:0;z-index:50;display:none;place-items:center;padding:30px;text-align:center;background:#06070d}
+.lock.on{display:grid}
+.lock .glass{padding:30px;max-width:340px}
+</style>
+</head>
+<body>
+<div class="bg"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="grain"></div>
+
+<main id="main">
+  <section class="page on" id="p-tracks">
+    <div class="glass hero">
+      <div class="logo">T</div>
+      <div><h1 id="hello">Salut 👋</h1><p id="sub">Ta bibliothèque Téo</p></div>
+      <div class="chip" id="daysChip"><b id="days">–</b><span id="daysLbl">accès</span></div>
+    </div>
+    <h2>Mes titres</h2>
+    <div id="tracks"></div>
+  </section>
+
+  <section class="page" id="p-albums">
+    <div id="albHead"></div>
+    <div id="albums"></div>
+  </section>
+
+  <section class="page" id="p-admin">
+    <div class="glass hero">
+      <div class="logo">👑</div>
+      <div><h1>Espace propriétaire</h1><p>Qui utilise Téo, et jusqu'à quand</p></div>
+    </div>
+    <div class="tiles" id="tiles"></div>
+    <input class="glass search" id="q" placeholder="Rechercher un nom, un @pseudo ou un id…" autocomplete="off">
+    <div id="users"></div>
+  </section>
+</main>
+
+<div id="mini" class="glass">
+  <div class="cov" id="mcov"></div>
+  <div class="meta"><b id="mt">—</b><span id="ma">—</span></div>
+  <button class="pbtn ghost" id="mprev" aria-label="Précédent">⏮</button>
+  <button class="pbtn" id="mplay" aria-label="Lecture">▶</button>
+  <button class="pbtn ghost" id="mnext" aria-label="Suivant">⏭</button>
+  <div class="prog"><i id="mprog"></i></div>
+</div>
+
+<nav id="dock" class="glass">
+  <button class="on" data-p="tracks"><span>🎵</span>Titres</button>
+  <button data-p="albums"><span>💿</span>Albums</button>
+  <button data-p="admin" id="adminTab" style="display:none"><span>👑</span>Admin</button>
+</nav>
+
+<div id="full">
+  <div class="glass close" id="fclose">⌄ Réduire</div>
+  <div id="bigcov">🎧</div>
+  <div id="ft">—</div><div id="fa">—</div>
+  <input type="range" id="seek" min="0" max="1000" value="0">
+  <div class="times"><span id="tc">0:00</span><span id="td">0:00</span></div>
+  <div class="ctrl">
+    <button class="pbtn ghost" id="fprev">⏮</button>
+    <button class="pbtn" id="fplay">▶</button>
+    <button class="pbtn ghost" id="fnext">⏭</button>
+  </div>
+</div>
+
+<div class="lock" id="lock"><div class="glass"><div style="font-size:44px">🔒</div>
+  <h2 style="margin:12px 0 8px;color:var(--ink)">Ouvre-moi depuis Telegram</h2>
+  <p style="color:var(--mute);line-height:1.6;margin:0">Cette application s'ouvre avec le bouton de ton bot Téo.</p></div></div>
+
+<audio id="au" preload="metadata" playsinline></audio>
+
+<script>
+(function(){
+"use strict";
+var tg = window.Telegram && Telegram.WebApp;
+var INIT = tg ? tg.initData : "";
+if(tg){ try{ tg.ready(); tg.expand(); tg.setHeaderColor("#06070d"); tg.setBackgroundColor("#06070d"); }catch(e){} }
+if(!INIT){ document.getElementById("lock").classList.add("on"); return; }
+
+var $ = function(id){ return document.getElementById(id); };
+var root = document.documentElement.style;
+var au = $("au"), queue = [], idx = -1, lib = {tracks:[], albums:[]}, me = null, users = [];
+
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];}); }
+function api(path){
+  return fetch(path,{method:"POST",headers:{"X-Init-Data":INIT}}).then(function(r){
+    if(!r.ok) throw new Error(r.status); return r.json(); });
+}
+function hash(s){ var h=0; for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return Math.abs(h); }
+function colorize(seed){                       /* couleurs dynamiques : une ambiance par titre */
+  var h = hash(seed||"teo")%360;
+  root.setProperty("--h1",h); root.setProperty("--h2",(h+52)%360); root.setProperty("--h3",(h+190)%360);
+}
+function cover(el,url,fallback){
+  el.style.backgroundImage = url ? 'url("'+url.replace(/"/g,"%22")+'")' : "";
+  el.textContent = url ? "" : (fallback||"🎵");
+}
+function fmt(s){ s=Math.max(0,Math.floor(s||0)); return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2); }
+function haptic(kind){ try{ tg.HapticFeedback.impactOccurred(kind||"light"); }catch(e){} }
+
+/* ---------- navigation ---------- */
+var dockBtns = document.querySelectorAll("#dock button");
+function show(p){
+  document.querySelectorAll(".page").forEach(function(s){ s.classList.toggle("on", s.id==="p-"+p); });
+  dockBtns.forEach(function(b){ b.classList.toggle("on", b.dataset.p===p); });
+  $("main").scrollTo({top:0}); haptic("light");
+  if(p==="admin") loadUsers();
+}
+dockBtns.forEach(function(b){ b.onclick=function(){ show(b.dataset.p); }; });
+
+/* ---------- profil ---------- */
+function loadMe(){
+  return api("/api/me").then(function(m){
+    me = m;
+    $("hello").textContent = "Salut " + (m.name||"") + " 👋";
+    if(m.days_left===null){ $("days").textContent="∞"; $("daysLbl").textContent="illimité"; }
+    else { $("days").textContent=m.days_left; $("daysLbl").textContent = m.days_left>1?"jours":"jour"; }
+    if(m.owner) $("adminTab").style.display="";
+  });
+}
+
+/* ---------- bibliothèque ---------- */
+function rowHTML(t,i,list){
+  return '<div class="row glass'+(t.playable?'':' off')+'" data-i="'+i+'" data-l="'+list+'">'+
+    '<div class="cov" style="'+(t.art?'background-image:url(&quot;'+esc(t.art)+'&quot;)':'')+'">'+(t.art?'':'🎵')+'</div>'+
+    '<div class="meta"><b>'+esc(t.title)+'</b><span>'+esc(t.artist)+(t.playable?'':' · à retélécharger')+'</span></div>'+
+    '<div class="eq"><i></i><i></i><i></i></div><div class="dur">'+(t.dur?fmt(t.dur):'')+'</div></div>';
+}
+function bindRows(box,list){
+  box.querySelectorAll(".row").forEach(function(r){
+    r.onclick=function(){ var t=list[+r.dataset.i]; if(!t.playable){ try{tg.showAlert("Ce titre n'est plus en mémoire : redemande-le au bot, il revient instantanément.");}catch(e){} return; }
+      play(list,+r.dataset.i); };
+  });
+}
+function renderTracks(){
+  var box=$("tracks");
+  if(!lib.tracks.length){ box.innerHTML='<div class="glass empty"><big>🎧</big>Aucun titre pour l\'instant.<br>Télécharge une chanson avec Téo : elle apparaît ici, prête à écouter.</div>'; return; }
+  box.innerHTML = lib.tracks.map(function(t,i){return rowHTML(t,i,"t");}).join("");
+  bindRows(box,lib.tracks); markNow();
+}
+var openAlbum = null;
+function renderAlbums(){
+  var head=$("albHead"), box=$("albums");
+  if(openAlbum!==null){
+    var a=lib.albums[openAlbum];
+    head.innerHTML='<div class="glass back" id="abk">← Albums</div><h2 style="margin-top:4px">'+esc(a.name)+'</h2>'+
+      '<div class="playall" id="pall">▶ Lire l\'album</div>';
+    box.innerHTML=a.tracks.map(function(t,i){return rowHTML(t,i,"a");}).join("");
+    bindRows(box,a.tracks);
+    $("abk").onclick=function(){ openAlbum=null; renderAlbums(); };
+    $("pall").onclick=function(){ play(a.tracks,0); };
+    markNow(); return;
+  }
+  head.innerHTML='<div class="glass hero"><div class="logo">💿</div><div><h1>Mes albums</h1><p>'+lib.albums.length+' album'+(lib.albums.length>1?'s':'')+' dans ta bibliothèque</p></div></div>';
+  if(!lib.albums.length){ box.innerHTML='<div class="glass empty"><big>💿</big>Pas encore d\'album.<br>Ouvre un album avec Téo et touche « Tout télécharger ».</div>'; return; }
+  box.innerHTML='<div class="grid">'+lib.albums.map(function(a,i){
+    return '<div class="glass alb" data-i="'+i+'"><div class="art" style="'+(a.art?'background-image:url(&quot;'+esc(a.art)+'&quot;)':'')+'">'+(a.art?'':'💿')+'</div>'+
+      '<b>'+esc(a.name)+'</b><span>'+esc(a.artist)+' · '+a.tracks.length+' titre'+(a.tracks.length>1?'s':'')+'</span></div>';}).join("")+'</div>';
+  box.querySelectorAll(".alb").forEach(function(el){ el.onclick=function(){ openAlbum=+el.dataset.i; renderAlbums(); $("main").scrollTo({top:0}); haptic("light"); }; });
+}
+function loadLib(){
+  return api("/api/library").then(function(d){ lib=d; renderTracks(); renderAlbums(); })
+   .catch(function(){ $("tracks").innerHTML='<div class="glass empty"><big>⚠️</big>Impossible de charger ta bibliothèque.</div>'; });
+}
+
+/* ---------- lecteur ---------- */
+function cur(){ return queue[idx]; }
+function markNow(){
+  var c=cur(); document.querySelectorAll(".row").forEach(function(r){
+    var l=r.dataset.l==="t"?lib.tracks:(openAlbum!==null?lib.albums[openAlbum].tracks:[]);
+    var t=l[+r.dataset.i]; r.classList.toggle("now", !!(c&&t&&t.tid===c.tid));
+  });
+}
+function play(list,i){
+  queue=list.filter(function(t){return t.playable;});
+  var target=list[i]; idx=queue.indexOf(target); if(idx<0) return;
+  load(); haptic("medium");
+}
+function load(){
+  var t=cur(); if(!t) return;
+  au.src="/api/audio/"+encodeURIComponent(t.tid)+"?d="+encodeURIComponent(INIT);
+  au.play().catch(function(){});
+  colorize(t.title+t.artist);
+  $("mt").textContent=t.title; $("ma").textContent=t.artist; $("ft").textContent=t.title; $("fa").textContent=t.artist;
+  cover($("mcov"),t.art); cover($("bigcov"),t.art,"🎧");
+  $("mini").classList.add("on"); markNow();
+  if("mediaSession" in navigator){
+    navigator.mediaSession.metadata=new MediaMetadata({title:t.title,artist:t.artist,artwork:t.art?[{src:t.art,sizes:"512x512"}]:[]});
+    navigator.mediaSession.setActionHandler("previoustrack",prev); navigator.mediaSession.setActionHandler("nexttrack",next);
+  }
+}
+function next(){ if(!queue.length) return; idx=(idx+1)%queue.length; load(); }
+function prev(){ if(!queue.length) return; if(au.currentTime>4){ au.currentTime=0; return; } idx=(idx-1+queue.length)%queue.length; load(); }
+function toggle(){ if(!cur()) return; if(au.paused) au.play().catch(function(){}); else au.pause(); haptic("light"); }
+function sync(){
+  var p=au.paused; ["mplay","fplay"].forEach(function(id){ $(id).textContent=p?"▶":"⏸"; });
+  document.body.classList.toggle("paused",p); document.body.classList.toggle("playing",!p);
+}
+au.onplay=au.onpause=sync; au.onended=next;
+au.onerror=function(){ try{tg.showAlert("Lecture impossible pour ce titre. Redemande-le au bot.");}catch(e){} };
+au.ontimeupdate=function(){
+  var d=au.duration||0, c=au.currentTime||0;
+  $("mprog").style.width=(d?c/d*100:0)+"%"; $("seek").value=d?c/d*1000:0; $("tc").textContent=fmt(c); $("td").textContent=fmt(d);
+};
+$("seek").oninput=function(){ if(au.duration) au.currentTime=au.duration*this.value/1000; };
+$("mplay").onclick=function(e){ e.stopPropagation(); toggle(); };
+$("fplay").onclick=toggle;
+$("mnext").onclick=function(e){ e.stopPropagation(); next(); };
+$("mprev").onclick=function(e){ e.stopPropagation(); prev(); };
+$("fnext").onclick=next; $("fprev").onclick=prev;
+$("mini").onclick=function(){ $("full").classList.add("on"); };
+$("fclose").onclick=function(){ $("full").classList.remove("on"); };
+sync();
+
+/* ---------- panneau propriétaire ---------- */
+function loadUsers(){
+  if(!me||!me.owner) return;
+  api("/api/users").then(function(d){ users=d.users; renderUsers(); }).catch(function(){
+    $("users").innerHTML='<div class="glass empty"><big>⚠️</big>Impossible de charger les utilisateurs.</div>'; });
+}
+function renderUsers(){
+  var term=($("q").value||"").toLowerCase().trim();
+  var active=users.filter(function(u){return !u.banned && (u.days_left===null||u.days_left>0);}).length;
+  $("tiles").innerHTML='<div class="glass tile"><b>'+users.length+'</b><span>Utilisateurs</span></div>'+
+    '<div class="glass tile"><b>'+active+'</b><span>Actifs</span></div>'+
+    '<div class="glass tile"><b>'+users.reduce(function(a,u){return a+u.downloads;},0)+'</b><span>Titres</span></div>';
+  var list=users.filter(function(u){ return !term || (u.name+" "+u.username+" "+u.uid).toLowerCase().indexOf(term)>=0; });
+  if(!list.length){ $("users").innerHTML='<div class="glass empty"><big>🔎</big>Aucun utilisateur trouvé.</div>'; return; }
+  $("users").innerHTML=list.map(function(u){
+    var hue=hash(String(u.uid))%360, d=u.days_left;
+    var left = d===null ? '<b>∞</b><small>illimité</small>' : '<b>'+d+'</b><small>jour'+(d>1?'s':'')+' restant'+(d>1?'s':'')+'</small><div class="bar"><i style="width:'+Math.min(100,d/30*100)+'%"></i></div>';
+    return '<div class="glass u"><div class="av" style="background:linear-gradient(135deg,hsl('+hue+' 90% 70%),hsl('+((hue+60)%360)+' 85% 62%))">'+esc((u.name||"?").charAt(0).toUpperCase())+'</div>'+
+      '<div class="meta"><b>'+esc(u.name||"Sans nom")+(u.banned?' 🚫':'')+'</b><span>'+(u.username?'@'+esc(u.username)+' · ':'')+'<span class="id" data-id="'+u.uid+'">id '+u.uid+'</span></span>'+
+      '<span><span class="badge '+(u.role==="owner"?"owner":"")+'">'+esc(u.role)+'</span> · '+u.downloads+' titre'+(u.downloads>1?'s':'')+'</span></div>'+
+      '<div class="left">'+left+'</div></div>';
+  }).join("");
+  document.querySelectorAll(".id").forEach(function(el){ el.onclick=function(){
+    try{ navigator.clipboard.writeText(el.dataset.id); tg.HapticFeedback.notificationOccurred("success"); }catch(e){} }; });
+}
+$("q").oninput=renderUsers;
+
+colorize("teo");
+loadMe().then(loadLib).catch(function(){
+  $("tracks").innerHTML='<div class="glass empty"><big>🔒</big>Accès refusé. Entre d\'abord ton code dans le bot, puis rouvre l\'application.</div>'; });
+})();
+</script>
+</body>
+</html>
